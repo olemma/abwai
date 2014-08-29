@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name        ExperimentalIDC
 // @author      Lemma
+// @updateURL    https://gist.githubusercontent.com/Lemmata/dca570b6b0f7e73a2888/raw/experimentalidc.user.js
 // @description Enhance...Enhance...Enhance
 // @include     *animebytes.tv/forums.php?*action=viewforum&forumid=49*
 // @include		*animebytes.tv/forums.php?action=viewthread*
