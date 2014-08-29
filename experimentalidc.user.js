@@ -5,7 +5,7 @@
 // @description Enhance...Enhance...Enhance
 // @include     *animebytes.tv/forums.php?*action=viewforum&forumid=49*
 // @include		*animebytes.tv/forums.php?action=viewthread*
-// @version     0.1.0
+// @version     0.2.0
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // ==/UserScript==
 
@@ -34,7 +34,7 @@ function anonymizeViewThread(){
         //trash avvie
         $("div.author_info").text("");
         //trash siggie
-        $("div.signature").text("");
+        $("div.signature").remove();
         //trash quote-name
         $("div.post strong a").text(ANON_NAME);
         //trash last-edit
