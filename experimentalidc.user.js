@@ -3,21 +3,29 @@
 // @author      Lemma
 // @updateURL    https://gist.githubusercontent.com/Lemmata/dca570b6b0f7e73a2888/raw/experimentalidc.user.js
 // @description Enhance...Enhance...Enhance
+// @include     *animebytes.tv/forums.php
 // @include     *animebytes.tv/forums.php?*action=viewforum&forumid=49*
 // @include		*animebytes.tv/forums.php?action=viewthread*
-// @version     0.2.0
+// @version     0.3
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // ==/UserScript==
 
 var ANON_NAME = 'bclaude';
 
+var viewthreadURLMatcher = /.*action=viewthread.*$/i;
 var viewforumURLMatcher = /.*action=viewforum.*$/i;
 if(viewforumURLMatcher.test(window.location.href)){
     anonymizeViewForum();
-}else{
+}else if (viewthreadURLMatcher.test(window.location.href)){
 	anonymizeViewThread();
+}else{
+	anonymizeForumLevel();
 }
 
+
+function anonymizeForumLevel(){
+    $("table:eq(1) > tbody > tr:nth-child(3) > td:nth-child(3) > div > a").text(ANON_NAME);
+}
 
 function anonymizeViewForum(){
 	/* Fix rows in idc forum view */
