@@ -6,7 +6,7 @@
 // @include     *animebytes.tv/forums.php
 // @include     *animebytes.tv/forums.php?*action=viewforum&forumid=49*
 // @include		*animebytes.tv/forums.php?*action=viewthread*
-// @version     1.0
+// @version     1.1
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // ==/UserScript==
 
@@ -29,8 +29,8 @@ var viewforumURLMatcher = /.*action=viewforum.*$/i;
 if(viewforumURLMatcher.test(window.location.href)){
     anonymizeViewForum();
 }else if (viewthreadURLMatcher.test(window.location.href)){
-    if(checkForum){
-		anonymizeViewThread();
+    if(checkForum()){
+	anonymizeViewThread();
     	setupGame();
         //unlockUser('9444');
     }
