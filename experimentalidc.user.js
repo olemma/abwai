@@ -10,7 +10,7 @@
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // ==/UserScript==
 
-var ANON_NAME = 'bclaude';
+var ANON_NAME = 'someone...';
 
 var viewthreadURLMatcher = /.*action=viewthread.*$/i;
 var viewforumURLMatcher = /.*action=viewforum.*$/i;
