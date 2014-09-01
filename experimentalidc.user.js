@@ -6,7 +6,7 @@
 // @include     *animebytes.tv/forums.php
 // @include     *animebytes.tv/forums.php?*action=viewforum*
 // @include		*animebytes.tv/forums.php?*action=viewthread*
-// @version     1.6
+// @version     1.7
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.github.com/sizzlemctwizzle/GM_config/master/gm_config.js
 // @resource forumcodes	https://gist.githubusercontent.com/Lemmata/46650c919cb692401712/raw/forums.json
@@ -331,6 +331,13 @@ ABThread.prototype = {
         	return this.postAttempts[postID].isVisible();
         }
         return false;
+    },
+    
+    getPostAttempts: function(postID){
+        if(postID in this.postAttempts){
+        	return this.postAttempts[postID].attempts;
+        }
+        return 0;
     }
 }; //end ABThread.prototype
 
@@ -338,6 +345,7 @@ ABThread.prototype = {
 var ABGame = new function(){
     this.anonName = 'play!!!';
     this.attempted = GM_SuperValue.get("attempted_posts", {});
+    this.baseScore = 10;
     
     //wrap supervalue.get to turn the json objects into actual objects w/methods
     function fetchThreadAttempts(){
@@ -407,14 +415,13 @@ var ABGame = new function(){
         return observed.toLowerCase() == truth.toLowerCase();
 	}
 
-	function unlockUser(uid){
-		console.log("Unlocking user "  + uid);
-		$("div.user_" + uid + " span.num_author").show();
-		$("div.user_" + uid + " div.author_info").show();
-		$("div.gameUser_" + uid).hide();
-		$("div.user_" + uid + " div.signature").show();
-		$("div.user_" + uid + " div.post strong a").show();
-		$("div.user_" + uid + " span.last-edited a").show();
+	function unlockUser(postID){
+        $("#post" + postID + " span.num_author").show();
+		$("#post" + postID + " div.author_info").show();
+        $("#game_post" + postID).hide();
+		$("#post" + postID + " div.signature").show();
+		$("#post" + postID + " div.post strong a").show();
+        $("#post" + postID + " span.last-edited a").show();
 	}
 
 	this.anonymizeViewThread = function(){
@@ -458,7 +465,7 @@ var ABGame = new function(){
 	}
 
 	this.onGiveUp = function(threadID, postID, uid){
-		unlockUser(uid);
+		unlockUser(postID);
 		this.updateAttempt(threadID, postID, 'surrender');
 	}
 
@@ -471,7 +478,7 @@ var ABGame = new function(){
 	}
 
 	this.getScore = function(){
-		return GM_SuperValue.get("player_score", 0);
+        return parseFloat(GM_SuperValue.get("player_score", 0));
 	}
 
 	this.setScore = function(newScore){
@@ -479,15 +486,34 @@ var ABGame = new function(){
 		$('li.player_score').text("Score: " + newScore);
 	}
 
-	this.scoreUp = function(){
-		var newScore = this.getScore() + 1;
+    this.getPostAttempts = function(threadID, postID){
+        if(!(threadID in this.threadAttempts)){
+        	return 0;
+        }else{
+            return parseFloat(this.threadAttempts[threadID].getPostAttempts(postID));
+        }
+    }
+    
+    this.getDifficulty = function(){
+   		return 1;
+    }
+    
+    /* Get the value of completing a given post */
+    this.getPostValue = function(threadID, postID){
+    	var attempts = this.getPostAttempts(threadID, postID);
+        var score = (this.baseScore * this.getDifficulty()) / (this.getPostAttempts(threadID, postID) + 1);
+        return score.toPrecision(3);
+    }
+    
+	this.scoreUp = function(threadID, postID){
+		var newScore = this.getScore() + this.getPostValue(threadID, postID);
 		this.setScore(newScore);
 		console.log('score++');
 		alert(":) alright...you got one\n...but you can never win\nscore: " + newScore);
 	}
 
-	this.scoreDown = function(){
-		var newScore = this.getScore() - 1;
+	this.scoreDown = function(threadID, postID){
+        var newScore = this.getScore() - (this.getPostValue(threadID, postID)/4.0).toPrecision(3) ;
 		this.setScore(newScore);
 		console.log('score--');
 		alert(':((((((((((((((((((\n...nice try dork\nscore: ' + newScore);
@@ -497,15 +523,22 @@ var ABGame = new function(){
 
 		console.log('Guess for ' + uid + ',' + uname);
 		var guess = $('#guessText_' + postID).val();
-		var goodGuess = nameMatches(guess, uname);
+       
+       
+        var goodGuess = nameMatches(guess, uname);
 		if(goodGuess){
-			this.scoreUp();
-			unlockUser(uid);
+			this.scoreUp(threadID, postID);
+			unlockUser(postID);
 		}else{
-			this.scoreDown();
+			this.scoreDown(threadID, postID);
 		}
 		this.updateAttempt(threadID, postID, (goodGuess ? 'solve' : 'fail'));
-	}
+		
+        //update post worth and attempts
+        $("#post_worth_" + postID).text("Post Worth: " + this.getPostValue(threadID, postID));
+        $("#post_attempt_" + postID).text("Attempts: " + this.getPostAttempts(threadID, postID));                                  
+		
+    }
 
 
     /**
@@ -529,6 +562,8 @@ var ABGame = new function(){
 					var ulist = $('<ul>', {class: 'nobullet'});
 					ulist.append($('<li>', {class: 'center player_score', text: 'Score: ' +
 					me.getScore()}));
+                    ulist.append($('<li>', {class: 'center post_worth', id: 'post_worth_' + postID, text: 'Post Worth: ' + me.getPostValue(threadID, postID)}));
+                    ulist.append($('<li>', {class: 'center post_attempts', id: 'post_attempt_' + postID, text: 'Attempts: ' + me.getPostAttempts(threadID, postID)}));
 					ulist.append($('<li>', {class: 'center', text: 'Who am I??'}));
 					ulist.append($('<li>', {class: 'center', html: $('<input>', {id:
 					'guessText_' + postID,  type: 'text'})}));
@@ -558,7 +593,7 @@ var ABGame = new function(){
 														})
 											}));
 
-					return $('<div>', { class: 'author_info gameUser_' + uid, html: ulist });
+                    return $('<div>', { class: 'author_info', id: 'game_post'+ postID, html: ulist });
 				  });
 			}
 		});
@@ -579,6 +614,4 @@ if(viewforumURLMatcher.test(window.location.href)){
 }else{
 	ABGame.anonymizeForumLevel();
 }
-
-
 
