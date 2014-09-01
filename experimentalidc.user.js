@@ -6,11 +6,10 @@
 // @include     *animebytes.tv/forums.php
 // @include     *animebytes.tv/forums.php?*action=viewforum*
 // @include		*animebytes.tv/forums.php?*action=viewthread*
-// @version     1.5
+// @version     1.6
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.github.com/sizzlemctwizzle/GM_config/master/gm_config.js
 // @resource forumcodes	https://gist.githubusercontent.com/Lemmata/46650c919cb692401712/raw/forums.json
-// @grant		GM_listValues
 // @grant		GM_getResourceText
 // @grant		GM_getValue
 // @grant		GM_setValue
@@ -237,11 +236,121 @@ var gmc_forums = new GM_configStruct(
 });
 //TODO callback reload settings on save? maybe just let them refresh
 
+function ABPost(postID, obj){
+    if(obj === undefined){
+		this.attempts = 0;
+    	this.postID = postID;
+    	this.pStatus = 'imnew';
+    }else{
+    	this.attempts = obj.attempts;
+        this.postID = obj.postID;
+        this.pStatus = obj.pStatus;
+    }
+}
+
+ABPost.prototype = {
+    init: function(){
+    	console.log('init post!!');
+    },
+    
+    /* Returns if the user was successful */
+    update: function(pStatus){
+    	if(pStatus != 'surrender')
+            this.attempts++;
+        this.pStatus = pStatus;
+        return (pStatus == 'solve');
+    },
+     
+    fromJson: function(jsonObj){
+        //hacky thing to copy over all data
+		for(var prop in obj) this[prop] = obj[prop];
+    },
+    
+    isVisible: function(){
+    	return (this.pStatus != 'fail');
+    }
+};//end ABPost.prototype
+
+function ABThread(threadID, obj){
+	
+    if(obj === undefined){
+    	this.threadID = threadID;
+    	this.postAttempts = {};
+    	this.firstPostID = 0;
+    	this.postCount = 0;
+        this.solved = 0;
+    	this.beat = false;
+    }else{
+    	this.threadID = obj.threadID;
+    	this.firstPostID = obj.firstPost;
+    	this.postCount = obj.postCount;
+    	this.beat = obj.beat;
+        this.postAttempts = {};
+        this.solved = obj.solved;
+        
+        console.log("hello!!!");
+    	for(var key in obj.postAttempts){
+            this.postAttempts[key] = new ABPost(key, obj.postAttempts[key]);
+        }
+        console.log(this.postAttempts);
+    }
+}
+
+ABThread.prototype = {
+    init: function(){
+    	console.log('init thread!!');
+    },
+    
+   /* guestimate the number of posts */
+    countPosts: function(){
+        //#posts are 25 per page, plus avg on last or #pages on first page if that is only one.
+        if($("div.pagenums").length != 0){
+            this.postCount = $("a.page-link:last").text() * 25  - 12;
+        }else{
+        	this.postCount = $("div.post_block").length;
+        }
+    },
+    
+    updateFirstPost: function(){
+        //get firstPostID when viewing a thread page.
+        this.firstPostID = $("div.post_block:first").attr("id").slice(4);
+    },
+    
+    updatePost: function(postID, pStatus){
+        if (!(postID in this.postAttempts)){
+        	this.postAttempts[postID] = new ABPost(postID);
+        }
+       	var success = this.postAttempts[postID].update(pStatus);
+        if(success){
+            this.solved++;
+        }
+    },
+    
+    isVisible: function(postID){
+        if(postID in this.postAttempts){
+        	return this.postAttempts[postID].isVisible();
+        }
+        return false;
+    }
+}; //end ABThread.prototype
+
 ///////////////main game object//////////////////////
 var ABGame = new function(){
-	this.anonName = 'someone...';
-	this.forumNo = '49';
+    this.anonName = 'play!!!';
     this.attempted = GM_SuperValue.get("attempted_posts", {});
+    
+    //wrap supervalue.get to turn the json objects into actual objects w/methods
+    function fetchThreadAttempts(){
+        var threadAttempts = {};
+        var rawThreadAttempts = GM_SuperValue.get("attempted_threads", {});
+        for(var key in rawThreadAttempts){
+            threadAttempts[key] = new ABThread(key, rawThreadAttempts[key]);
+        }
+        console.log('loaded threadAttempts...');
+        console.log(threadAttempts);
+        return threadAttempts;
+    }
+    this.threadAttempts = fetchThreadAttempts();
     
     
    /** Get forum ids of all enabled forums 
@@ -295,7 +404,7 @@ var ABGame = new function(){
  
 	/** TODO use edit distance or something **/
 	function nameMatches(observed, truth){
-		return observed.toLowerCase() == truth.toLowerCase();
+        return observed.toLowerCase() == truth.toLowerCase();
 	}
 
 	function unlockUser(uid){
@@ -311,11 +420,12 @@ var ABGame = new function(){
 	this.anonymizeViewThread = function(){
 		var my_uid = $("#username_menu > a").attr("href").split("=")[1];
 		var thisobj = this;
+        var threadID = $("input[name='thread']").attr("value");
         $("div.post_block").each(function(){	
 			var uid  = $(this).attr("class").split("user_")[1];
-            var postNo = $(this).find("span.post_id > a:first").text().slice(1);
+            var postID = $(this).find("span.post_id > a:first").text().slice(1);
 
-			if(uid != my_uid && !thisobj.hasSeen(postNo)){
+			if(uid != my_uid && !thisobj.isVisible(threadID, postID)){
 				//trash the name
 				$(this).find("span.num_author").hide();
 				//trash avvie
@@ -336,34 +446,28 @@ var ABGame = new function(){
 
 	 * TODO: validate data.
 	 */
-	this.updateAttempt = function(postid, pStatus){
-		if(postid in this.attempted){
-			if(pStatus != 'surrender'){
-				this.attempted[postid] = [this.attempted[postid][0] + 1, pStatus];
-			}else{
-				this.attempted[postid] = [this.attempted[postid][0], pStatus];
-			}
-		}else if (pStatus != 'surrender'){
-			this.attempted[postid] = [1, pStatus];
-		}else{
-			this.attempted[postid] = [0, pStatus];
-		}
-		GM_SuperValue.set("attempted_posts", this.attempted);
+	this.updateAttempt = function(threadID, postID, pStatus){
+        if(!(threadID in this.threadAttempts)){
+            this.threadAttempts[threadID] = new ABThread(threadID);
+            this.threadAttempts[threadID].updateFirstPost();
+        }
+        console.log(this.threadAttempts);
+        this.threadAttempts[threadID].updatePost(postID, pStatus);
+        this.threadAttempts[threadID].countPosts();
+        GM_SuperValue.set("attempted_threads", this.threadAttempts);
 	}
 
-	this.onGiveUp = function(postid, uid){
+	this.onGiveUp = function(threadID, postID, uid){
 		unlockUser(uid);
-		this.updateAttempt(postid, 'surrender');
+		this.updateAttempt(threadID, postID, 'surrender');
 	}
 
 	/** Check if we have already solved a given post */
-	this.hasSeen = function(postid){
-		if (postid in this.attempted){
-			var pStatus = this.attempted[postid][1];
-			return (pStatus != 'fail');
-		}else{
-			return false;
-		}
+    this.isVisible = function(threadID, postID){
+        if(threadID in this.threadAttempts){
+        	return this.threadAttempts[threadID].isVisible(postID);
+        }
+        return false;
 	}
 
 	this.getScore = function(){
@@ -389,10 +493,10 @@ var ABGame = new function(){
 		alert(':((((((((((((((((((\n...nice try dork\nscore: ' + newScore);
 	}
 
-	this.onGuess = function(postNo, uid, uname){
+	this.onGuess = function(threadID, postID, uid, uname){
 
 		console.log('Guess for ' + uid + ',' + uname);
-		var guess = $('#guessText_' + postNo).val();
+		var guess = $('#guessText_' + postID).val();
 		var goodGuess = nameMatches(guess, uname);
 		if(goodGuess){
 			this.scoreUp();
@@ -400,21 +504,25 @@ var ABGame = new function(){
 		}else{
 			this.scoreDown();
 		}
-		this.updateAttempt(postNo, (goodGuess ? 'solve' : 'fail'));
+		this.updateAttempt(threadID, postID, (goodGuess ? 'solve' : 'fail'));
 	}
 
 
+    /**
+     * Setup the per post controls for the game, where the avatar used to be!
+     */
 	this.setupGame = function(){
 		var my_uid = $("#username_menu > a").attr("href").split("=")[1];
-		var me = this; //is this a good idea?
+		var threadID = $("input[name='thread']").attr("value");
+        var me = this; //is this a good idea?
 
 		//add the stuff for the game to each block
 		$("div.post_block").each(function(){
 			var uid  = $(this).attr("class").split("user_")[1];
-			//get postNo, discarding leading #
-			var postNo = $(this).find("span.post_id > a:first").text().slice(1);
+			//get postID, discarding leading #
+			var postID = $(this).find("span.post_id > a:first").text().slice(1);
 
-			if(uid != my_uid && !me.hasSeen(postNo)){
+			if(uid != my_uid && !me.isVisible(threadID, postID)){
 				var uname = $(this).find("span.num_author > a:first").text();
 				$(this).find("div.author_info").after(function(){
 					
@@ -423,13 +531,13 @@ var ABGame = new function(){
 					me.getScore()}));
 					ulist.append($('<li>', {class: 'center', text: 'Who am I??'}));
 					ulist.append($('<li>', {class: 'center', html: $('<input>', {id:
-					'guessText_' + postNo,  type: 'text'})}));
+					'guessText_' + postID,  type: 'text'})}));
 					
 					ulist.append($('<li>', {class: 'center', html: $('<button>',{
 																	type: 'button',
 																	text: 'Guess',
 																	click:
-																	function(){me.onGuess(postNo, uid,
+                        function(){me.onGuess(threadID, postID, uid,
 																	uname);}
 																	})
 					}));
@@ -438,7 +546,7 @@ var ABGame = new function(){
 																	 type: 'button', 
 																	 text: 'Give Up', 
 																	 click:
-																	 function(){me.onGiveUp(postNo, uid);}
+																	 function(){me.onGiveUp(threadID, postID, uid);}
 																	 })
 										   }));
 
@@ -471,5 +579,6 @@ if(viewforumURLMatcher.test(window.location.href)){
 }else{
 	ABGame.anonymizeForumLevel();
 }
+
 
 
