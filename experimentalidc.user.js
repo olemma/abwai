@@ -4,10 +4,14 @@
 // @updateURL    https://gist.githubusercontent.com/Lemmata/dca570b6b0f7e73a2888/raw/experimentalidc.user.js
 // @description Enhance...Enhance...Enhance
 // @include     *animebytes.tv/forums.php
-// @include     *animebytes.tv/forums.php?*action=viewforum&forumid=49*
+// @include     *animebytes.tv/forums.php?*action=viewforum*
 // @include		*animebytes.tv/forums.php?*action=viewthread*
-// @version     1.1
+// @version     1.5
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
+// @require		https://raw.github.com/sizzlemctwizzle/GM_config/master/gm_config.js
+// @resource forumcodes	https://gist.githubusercontent.com/Lemmata/46650c919cb692401712/raw/forums.json
+// @grant		GM_listValues
+// @grant		GM_getResourceText
 // @grant		GM_getValue
 // @grant		GM_setValue
 // ==/UserScript==
@@ -16,12 +20,11 @@
 ////////////////NOTES////////////////////////
 // -extra points for unlocking whole thread?
 // -extra points for streak?
+// -different difficulties
 // -levehstein distance
 // -points based on #unlocked in thread
 // -using name in post??
-// -remember posts won
 // -play on post basis not user (why did i ever do this lol)
-// -GM_setvalue to pick forum(s) real settings?
 
 ////////////////////////Begin copypasta//////////////////////////////
 /***************************************************************************************
@@ -198,34 +201,102 @@ var GM_SuperValue = new function () {
     }//-- End of get()
 }
 
+//js is so dumb...
+if (typeof String.prototype.startsWith != 'function') {
+  // see below for better implementation!
+  String.prototype.startsWith = function (str){
+    return this.indexOf(str) == 0;
+  };
+}
+
 ///////////////////////end copypasta///////////////////////////////////////
+/** Get forum information from a resource **/
+function fetchForumFields(){
+	var fields = {};
+	var rawText = GM_getResourceText("forumcodes");
+	var forumcodes = JSON.parse(rawText);
+	
+    for(var i = 0; i < forumcodes.length; i++){
+		fields["enable_forum_" + forumcodes[i]["id"]] = 
+		{
+			'label' : forumcodes[i]['name'],
+			'type' : 'checkbox',
+			'default' : false 
+		}
+	}
+    console.log(fields);
+	return fields;
+}
+
+/////////////settings picker/////////////////////////
+var gmc_forums = new GM_configStruct(
+{
+  'id': 'gmc_forums', // The id used for this instance of GM_config
+  'title': 'Enable Game on Forums',
+  'fields': fetchForumFields()// Fields object  
+});
+//TODO callback reload settings on save? maybe just let them refresh
+
+///////////////main game object//////////////////////
 var ABGame = new function(){
 	this.anonName = 'someone...';
 	this.forumNo = '49';
     this.attempted = GM_SuperValue.get("attempted_posts", {});
-
-
-	this.anonymizeForumLevel = function(){
-		$("table:eq(1) > tbody > tr:nth-child(3) > td:nth-child(3) > div >a").text(this.anonName);
-	}
-
-	/* TODO this is forum-specific */
-	this.anonymizeViewForum = function(){
-		/* Fix rows in idc forum view */
-		$("tr[class^='row'] td:nth-child(5)").text(this.anonName);
-		$("tr[class^='row'] td:nth-child(3) p a").text(this.anonName);
-	}
-
+    
+    
+   /** Get forum ids of all enabled forums 
+     hacky thing to list all of these in GM_config code
+     **/
+    this.getEnabledForums = function(){
+        var gmcFields = gmc_forums.fields;
+        var enabledForums = [];
+        for(var key in gmcFields){
+            if(key.startsWith('enable_forum_') && gmcFields[key].value == true){
+            	enabledForums.push(key.split('forum_')[1]);
+            }
+        }
+        return enabledForums;
+    }
+    this.enabledForums = this.getEnabledForums();
+    console.log(this.enabledForums);
+    
 	/** Return true if we are hacking this forum **/
-	this.checkForum = function(){
-		return ($("#forum_" + this.forumNo).length != 0);
+    this.checkThread = function(){
+        var forumID = $("div[id^=forum_]").attr("id").split("_")[1];
+        return (this.enabledForums.indexOf(forumID) >= 0);
 	}
+	
+    /** Hide thread creators/last posters
+     * TODO: what about defeated threads/posts??
+     * TODO: make it harder to cheat by hiding links to user profiles
+     */
+	this.anonymizeViewForum = function(){
+        //check if we are playing in this forum (coincidentally we can do this with checkThread)
+        if(this.checkThread()){
+			/* Fix rows in idc forum view */
+			$("tr[class^='row'] td:nth-child(5)").text(this.anonName);
+			$("tr[class^='row'] td:nth-child(3) p a").text(this.anonName);
+        }
+    }
 
+    /** Hide last posters in top level forums page for forums you are playing the game in
+    	TODO: make it harder to cheat by hiding links to user profiles
+    */
+	this.anonymizeForumLevel = function(){
+        var me = this;
+        $("tr[class^='row']").each(function(){
+            var forumID = $(this).find("h4.min_padding > a:first").attr("id").slice(1);
+            if(me.enabledForums.indexOf(forumID) >= 0){
+				console.log($(this).find("td > div > a").text(me.anonName));
+            }
+        });
+    }
+
+ 
 	/** TODO use edit distance or something **/
 	function nameMatches(observed, truth){
 		return observed.toLowerCase() == truth.toLowerCase();
 	}
-
 
 	function unlockUser(uid){
 		console.log("Unlocking user "  + uid);
@@ -371,7 +442,13 @@ var ABGame = new function(){
 																	 })
 										   }));
 
-					
+					ulist.append($('<li>', {class: 'center', html: $('<button>',
+														{ type: 'button',
+														  text: 'Forum Settings',
+														  click:
+														  function(){gmc_forums.open();}
+														})
+											}));
 
 					return $('<div>', { class: 'author_info gameUser_' + uid, html: ulist });
 				  });
@@ -387,7 +464,7 @@ var viewforumURLMatcher = /.*action=viewforum.*$/i;
 if(viewforumURLMatcher.test(window.location.href)){
     ABGame.anonymizeViewForum();
 }else if (viewthreadURLMatcher.test(window.location.href)){
-    if(ABGame.checkForum()){
+    if(ABGame.checkThread()){
 		ABGame.anonymizeViewThread();
     	ABGame.setupGame();
     }
