@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        ExperimentalIDC
+// @name        abwai
 // @author      Lemma
 // @updateURL    https://gist.githubusercontent.com/Lemmata/dca570b6b0f7e73a2888/raw/experimentalidc.user.js
 // @description Enhance...Enhance...Enhance
