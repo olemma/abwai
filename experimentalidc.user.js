@@ -4,7 +4,7 @@
 // @updateURL    https://gist.githubusercontent.com/Lemmata/dca570b6b0f7e73a2888/raw/experimentalidc.user.js
 // @description Enhance...Enhance...Enhance
 // @include     *://animebytes.tv*
-// @version     2.1
+// @version     2.2
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.github.com/Lemmata/GM_config/master/gm_config.js
 // @require http://userscripts-mirror.org/scripts/source/107941.user.js
@@ -436,7 +436,7 @@ ABGame.prototype = {
         this.name = 'Anime';
         this.simpleName = 'intermediate';
         this.description = 'its too tough onee-san!!!';
-        this.threshld = 50;
+        this.scoreThreshold = 50;
     },
     
     ExpertDifficulty: function(){
@@ -549,7 +549,7 @@ ABGame.prototype = {
             GM_SuperValue.set("num_posts_beat", this.countPostsBeat() + 1);
         }
         if(pStatus != 'surrender'){
-        	GM_SuperValue.set("num_posts_attempted", this.countPostsAttempted() + 1);
+            GM_SuperValue.set("num_posts_attempted", this.countPostsAttempted() + 1);
         }
         console.log('new attempt!');
     },
@@ -679,7 +679,7 @@ ABGame.prototype = {
         this.setScore(0);
         this.threadAttempts = {};
         GM_SuperValue.set("attempted_threads", {});
-    	GM_SuperValue.set("num_posts_beat", 0);
+        GM_SuperValue.set("num_posts_beat", 0);
         GM_SuperValue.set("num_posts_attempted", 0);
     },
     
@@ -833,17 +833,37 @@ ABGame.prototype = {
         }
         
         function updatePlaying(){
-            if(!base.amPlaying()){
-                $('#game_sb_toggle').attr({
-                    "src": '/static/common/smileys/whistle.png',
-                    "title": 'pls click and play!!!!!!... i miss you!!'
-                });
+            
+            //hellooo... globals... check if we COULD be playing!!!!
+            if((viewforumURLMatcher.test(window.location.href) || 
+               viewthreadURLMatcher.test(window.location.href)) && 
+                base.tv_fv_checkThread()
+              ){
+                if(!base.amPlaying()){
+                    $('#game_sb_toggle').attr({
+                        "src": '/static/common/smileys/drool.png',
+                        "title": 'pls click and play!!!!!!... i know like.. 1 guy in this thread!!!'
+                    });
+                }else{
+                    $('#game_sb_toggle').attr({
+                        "src": '/static/common/smileys/kamina.png',
+                        "title": 'no...dont click this!!! keep playing... ill be nice!'
+                    });
+                }
             }else{
-                $('#game_sb_toggle').attr({
-                    "src": '/static/common/smileys/kamina.png',
-                    "title": 'no...dont click this!!! keep playing... ill be nice!'
-                });
-            }	
+                
+                if(!base.amPlaying()){
+                    $('#game_sb_toggle').attr({
+                        "src": '/static/common/smileys/Crying.png',
+                        "title": 'do..you even know wat ur doing?? turn me on!!'
+                    });
+                }else{
+                    $('#game_sb_toggle').attr({
+                        "src": '/static/common/smileys/wotwot.png',
+                        "title": 'i saw a thread we could be playing in over there!! lets go!! dont turn me off!!'
+                    });
+                }
+            }
         }
         
         //GM_SuperValue.runTestCases();
