@@ -6,7 +6,7 @@
 // @include     *animebytes.tv/forums.php
 // @include     *animebytes.tv/forums.php?*action=viewforum*
 // @include		*animebytes.tv/forums.php?*action=viewthread*
-// @version     1.8
+// @version     2.0
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.github.com/Lemmata/GM_config/master/gm_config.js
 // @resource forumcodes	https://gist.githubusercontent.com/Lemmata/46650c919cb692401712/raw/forums.json
@@ -59,18 +59,22 @@ var GM_SuperValue = new function () {
     var JSON_MarkerStr  = 'json_val: ';
     var FunctionMarker  = 'function_code: ';
     
-    function ReportError (msg) {
-        if (console && console.error)
+    function reportError (msg) {
+        if (console && console.error){
             console.log (msg);
-        else
+        }
+        else{
             throw new Error (msg);
+        }
     }
     
     //--- Check that the environment is proper.
-    if (typeof GM_setValue != "function")
-        ReportError ('This library requires Greasemonkey! GM_setValue is missing.');
-    if (typeof GM_getValue != "function")
-        ReportError ('This library requires Greasemonkey! GM_getValue is missing.');
+    if (typeof GM_setValue !== "function"){
+        reportError ('This library requires Greasemonkey! GM_setValue is missing.');
+    }
+    if (typeof GM_getValue !== "function"){
+        reportError ('This library requires Greasemonkey! GM_getValue is missing.');
+    }
     
     
     /*--- set ()
@@ -94,16 +98,16 @@ var GM_SuperValue = new function () {
     this.set = function (varName, varValue) {
         
         if ( ! varName) {
-            ReportError ('Illegal varName sent to GM_SuperValue.set().');
+            reportError ('Illegal varName sent to GM_SuperValue.set().');
             return;
         }
         if (/[^\w _-]/.test (varName) ) {
-            ReportError ('Suspect, probably illegal, varName sent to GM_SuperValue.set().');
+            reportError ('Suspect, probably illegal, varName sent to GM_SuperValue.set().');
         }
         
         switch (typeof varValue) {
             case 'undefined':
-                ReportError ('Illegal varValue sent to GM_SuperValue.set().');
+                reportError ('Illegal varValue sent to GM_SuperValue.set().');
                 break;
             case 'boolean':
             case 'string':
@@ -139,7 +143,7 @@ var GM_SuperValue = new function () {
                 break;
                 
             default:
-                ReportError ('Unknown type in GM_SuperValue.set()!');
+                reportError ('Unknown type in GM_SuperValue.set()!');
                 break;
         }
     }//-- End of set()
@@ -173,11 +177,11 @@ var GM_SuperValue = new function () {
     this.get = function (varName, defaultValue) {
         
         if ( ! varName) {
-            ReportError ('Illegal varName sent to GM_SuperValue.get().');
+            reportError ('Illegal varName sent to GM_SuperValue.get().');
             return;
         }
         if (/[^\w _-]/.test (varName) ) {
-            ReportError ('Suspect, probably illegal, varName sent to GM_SuperValue.get().');
+            reportError ('Suspect, probably illegal, varName sent to GM_SuperValue.get().');
         }
         
         //--- Attempt to get the value from storage.
@@ -322,15 +326,169 @@ ABThread.prototype = {
     }
 }; //end ABThread.prototype
 
-///////////////main game object//////////////////////
+
+//////////////main game object//////////////////////
 function ABGame(){
     this.anonName = 'play!!!';
     this.attempted = GM_SuperValue.get("attempted_posts", {});
     this.baseScore = 10;
     /** Get forum information from a resource **/
     
-    //idk... about this...
-    var gameObj = this;
+    //idk... about this(this(this(this)))...
+    var base = this;
+    
+    //setup object hierarchy for difficulty levels
+    //TODO refactor this so its not just chillin here
+    
+    //begin DifficultyLevel
+    this.DifficultyLevel.prototype = {
+        fv_anonymize: function(){
+            
+        },
+        
+        //TODO get player's points, maybe post count? idk
+        isUnlocked: function(score){
+            return (this.enabled);
+        },
+        
+        hv_anonymize: function(){
+            
+        },
+        
+        /* template, overwrite for each difficulty */
+        tv_anonymizePostForDifficulty: function(context){
+            ;
+        },
+        
+        /* template, overwrite for each difficulty, should be the reverse of 
+    		 * tv_anonymizePostForDifficulty
+    		 */
+        tv_unlockPostForDifficulty: function(context){
+            
+        },
+        
+        tv_unlockPost: function(postID){
+            console.log("difficulty unlocking " + postID);
+            //unlock the name
+            $("#post" + postID + " span.num_author").show();
+            //unlock the signature
+            $("#post" + postID + " div.signature").show();
+            //unlock quote-name
+            $("#post" + postID + " div.post strong a").show();
+            //unlock last-edit name
+            $("#post" + postID + " span.last-edited a").show();       
+            
+            //unlock difficulty specific
+            this.tv_unlockPostForDifficulty($("#post" + postID));
+            
+            //hide the game interface
+            $("#game_post" + postID).hide();
+            
+        },
+        
+        /* Anonymize all posts in a thread by hiding the name... and then doing difficulty-specific stuff */
+        tv_anonymize: function(){
+            var my_uid = $("#username_menu > a").attr("href").split("=")[1];
+            var threadID = $("input[name='thread']").attr("value");
+            var me = this;
+            
+            $("div.post_block").each(function(){
+                var uid  = $(this).attr("class").split("user_")[1];
+                var postID = $(this).find("span.post_id > a:first").text().slice(1);
+                
+                if(uid != my_uid && !base.isVisible(threadID, postID)){
+                    //trash the name
+                    $(this).find("span.num_author").hide();
+                    
+                    console.log('working');
+                    /* anonymize based on actual difficulty */
+                    me.tv_anonymizePostForDifficulty(this);
+                    
+                }
+            });
+            
+        },
+        
+        toString: function(){
+            return this.name + " (" + this.simpleName + ") [" + this.multiplier + "x]";
+        }
+    };
+    
+    
+    //begin BeginnerDifficulty
+    this.BeginnerDifficulty.prototype = new this.DifficultyLevel();
+    this.BeginnerDifficulty.prototype.constructor = this.BeginnerDifficulty;
+    
+    this.BeginnerDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
+        ;
+    }
+    
+    this.BeginnerDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
+        ;
+    }
+    
+    //begin NoviceDifficulty
+    this.NoviceDifficulty.prototype = new this.DifficultyLevel();
+    this.NoviceDifficulty.prototype.constructor = this.NoviceDifficulty;
+    
+    this.NoviceDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
+        ;
+    }
+    
+    this.NoviceDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
+        ;
+    }
+    
+    //begin IntermediateDifficulty
+    this.IntermediateDifficulty.prototype = new this.DifficultyLevel();
+    this.IntermediateDifficulty.prototype.constructor = this.IntermediateDifficulty;
+    
+    this.IntermediateDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
+        ;
+    }
+    
+    this.IntermediateDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
+        ;
+    }
+    
+    //begin expertdifficulty
+    this.ExpertDifficulty.prototype = new this.DifficultyLevel();
+    this.ExpertDifficulty.prototype.constructor = this.ExpertDifficulty;
+    
+    this.ExpertDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
+        $(context).find("div.author_info").hide();   
+    }
+    
+    this.ExpertDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
+        //unlock whole author panel
+        $(context).find("div.author_info").show();
+    }
+    
+    //begin IDCDifficulty
+    this.IdcDifficulty.prototype = new this.DifficultyLevel();
+    this.IdcDifficulty.prototype.constructor = this.IdcDifficulty;
+    
+    this.IdcDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
+        ;
+    }
+    
+    this.IdcDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
+        ;
+    }
+    
+    //build the list of difficulties
+    var beginnerDifficulty = new this.BeginnerDifficulty();
+    var expertDifficulty = new this.ExpertDifficulty();
+    var intermediateDifficulty = new this.IntermediateDifficulty();
+    var idcDifficulty = new this.IdcDifficulty();
+    var noviceDifficulty = new this.NoviceDifficulty();
+    
+    this.difficulties = {};
+    this.difficulties[beginnerDifficulty.simpleName] = beginnerDifficulty;
+    this.difficulties[noviceDifficulty.simpleName] = noviceDifficulty;
+    this.difficulties[intermediateDifficulty.simpleName] = intermediateDifficulty;
+    this.difficulties[expertDifficulty.simpleName] = expertDifficulty;
+    this.difficulties[idcDifficulty.simpleName] = idcDifficulty;
     
     //code to setup the settings picker
     function fetchForumFields(){
@@ -349,9 +507,9 @@ function ABGame(){
         return fields;
     }
     
-    function on_confirm_reset(gameObj){
+    function on_confirm_reset(base){
         if(confirm("Are you sure you want to reset your score and history of beaten posts?")){
-            gameObj.resetGame();
+            base.resetGame();
             location.reload();
         }
         else{
@@ -369,14 +527,15 @@ function ABGame(){
                     {
                         'label' : 'Reset Game',
                         'type' : 'button',
-                        'click' : function(){on_confirm_reset(gameObj);}
+                        'click' : function(){on_confirm_reset(base);}
                     },
                     
-                    'difficulty':
+                    'game_difficulty':
                     {
                         'label' : 'Choose Difficulty',
                         'type' : 'select',
-                        'options' : this.getDifficulties()
+                        'options' : this.getDisplayDifficulties(),
+                        'default': 'beginner'
                     }
                 }, 
                 fetchForumFields()
@@ -400,6 +559,62 @@ function ABGame(){
 }
 
 ABGame.prototype = {
+    
+    /* yea.. nested polymorphism or ... whatever */
+    DifficultyLevel: function(){
+        this.multiplier = 1;
+        this.name = '';
+        this.simpleName = '';
+        this.description = 'this game is cute!!';
+        this.threshold = 0;
+        this.enabled = true;
+    },
+    
+    BeginnerDifficulty: function(){
+        this.multiplier = 0.5;
+        this.name = 'Forum Games';
+        this.simpleName = 'beginner';
+        this.description = 'this game is cute!!!';
+        this.threshold = Number.NEGATIVE_INFINITY;
+    },
+    
+    
+    NoviceDifficulty: function(){
+        this.multiplier = 1;
+        this.name = 'Mild Discussion';
+        this.simpleName = 'novice';
+        this.description = "wow... 'av u been practicin'?";
+        this.threshold = 0;
+        this.enabled = false;
+    },
+    
+    IntermediateDifficulty: function(){
+        this.multiplier = 2;
+        this.name = 'Anime';
+        this.simpleName = 'intermediate';
+        this.description = 'its too tough onee-san!!!';
+        this.threshld = 50;
+        this.enabled = false;
+    },
+    
+    ExpertDifficulty: function(){
+        this.multiplier = 5;
+        this.name = 'Hentai';
+        this.simpleName = 'expert';
+        this.description = 'haha...ok ..well try this1!!!!';
+        this.threshold = 100;
+    },
+    
+    IdcDifficulty: function(){
+        this.multiplier = 10;
+        this.name = 'International Department of Concerns';
+        this.simpleName = 'idc';
+        this.description = 'good luck...buddy... :)):):)not';
+        this.threshold = 500;
+        this.enabled = false;
+    },
+    
+    
     /** Get forum ids of all enabled forums 
      hacky thing to list all of these in GM_config code
      **/
@@ -454,12 +669,14 @@ ABGame.prototype = {
     
     /** Hide last posters in top level forums page for forums you are playing the game in
     	TODO: make it harder to cheat by hiding links to user profiles
+        TODO: wtf happened to the code for this??
     */
     hv_anonymize: function(){
         var me = this;
         $("tr[class^='row']").each(function(){
             var forumID = $(this).find("h4.min_padding > a:first").attr("id").slice(1);
             if(me.enabledForums.indexOf(forumID) >= 0){
+                
             }
         });
     },
@@ -468,38 +685,6 @@ ABGame.prototype = {
     /** TODO use edit distance or something **/
     nameMatches: function(observed, truth){
         return observed.toLowerCase() == truth.toLowerCase();
-    },
-    
-    tv_unlockPost: function(postID){
-        $("#post" + postID + " span.num_author").show();
-        $("#post" + postID + " div.author_info").show();
-        $("#game_post" + postID).hide();
-        $("#post" + postID + " div.signature").show();
-        $("#post" + postID + " div.post strong a").show();
-        $("#post" + postID + " span.last-edited a").show();
-    },
-    
-    tv_anonymize: function(){
-        var my_uid = $("#username_menu > a").attr("href").split("=")[1];
-        var thisobj = this;
-        var threadID = $("input[name='thread']").attr("value");
-        $("div.post_block").each(function(){	
-            var uid  = $(this).attr("class").split("user_")[1];
-            var postID = $(this).find("span.post_id > a:first").text().slice(1);
-            
-            if(uid != my_uid && !thisobj.isVisible(threadID, postID)){
-                //trash the name
-                $(this).find("span.num_author").hide();
-                //trash avvie
-                $(this).find("div.author_info").hide();
-                //trash siggie
-                $(this).find("div.signature").hide();
-                //trash quote-name
-                $(this).find("div.post strong a").hide();
-                //trash last-edit
-                $(this).find("span.last-edited a").hide();
-            }
-        });
     },
     
     /** Update attempts on a post, record how many times they have tried, and if
@@ -538,36 +723,77 @@ ABGame.prototype = {
     /* Get the difficulties you can play on
     	TODO: this should depend on your score
     */
-    getDifficulties: function(){
-        return {'Forum Games (Beginner)' : 'beginner',
-                'Mild Discussion (Novice)' : 'novice',
-                'Anime (Intermediate)': 'intermediate',
-                'Hentai (Experienced)' : 'experienced',
-                'IDC (u lose)' : 'idc'
-               };   	
-    },
-    
-    /* get the current difficulty setting */
-    getDifficulty: function(){
-        return this.gmc_settings.get('difficulty');
-    },
-    
-    /* Get the difficulty multiplier for the current difficulty */
-    getDifficultyMultiplier: function(){
-        switch(this.getDifficulty()){
-            case "beginner": return 1;
-            case "novice": return 2;
-            case "intermediate": return 3;
-            case "experienced": return 4;
-            case "idc": return 10;
-            default : return 1;
+    getDisplayDifficulties: function(){
+        var opts = {};
+        for (var simpleName in this.difficulties){
+            var difficulty = this.difficulties[simpleName];
+            if(difficulty.isUnlocked(this.getScore())){
+                opts[difficulty.toString()] = simpleName;
+            }
         }
+        return opts;  	
+    },
+    
+    /* get the current difficulty object */
+    getDifficulty: function(){
+        return this.difficulties[this.gmc_settings.get('game_difficulty')];
+    },
+    
+    /* DANGEROUS!!!
+     * set difficulty and refresh page to become new difficulty.
+     */
+    setDifficulty: function(difficulty){
+        this.gmc_settings.set("game_difficulty", difficulty.simpleName);
+        location.reload();
+    },
+    
+    /** Gets the hardest difficulty you can play... or the only one**/
+    getHardestDifficulty: function(score){
+        var hardest = null;
+        
+        var base = this;
+        function anyDifficulty(){
+            for(var simpleName in base.difficulties){
+                if (base.difficulties[simpleName].isUnlocked()){
+                    return simpleName;
+                }
+            }
+        }
+        
+        for (var simpleName in this.difficulties){
+            var difficulty = this.difficulties[simpleName];
+            if(difficulty.isUnlocked(score)){
+                if (hardest == null){
+                    hardest = difficulty;
+                }else{
+                    hardest = (difficulty.threshold > hardest.threshold) ? difficulty : hardest;
+                }
+            }
+        }
+        console.log('Hardest difficulty playable is ' + hardest.simpleName);
+        return (hardest == null) ? anyDifficulty() : hardest.simpleName;
     },
     
     setScore: function(newScore){
+        var oldScore = this.getScore();
         GM_SuperValue.set("player_score", newScore);
+        
+        for(var key in this.difficulties){
+            var difficulty = this.difficulties[key]; 
+            if( !difficulty.isUnlocked(oldScore) && difficulty.isUnlocked(newScore) ){
+                alert('wow... ur better than i thuoght...  baka\n...well ok ill let u play on [' + difficulty.toString() + ']');
+                return;
+            }
+        }
+        
+        if(!this.getDifficulty().isUnlocked(newScore)){
+            var hardest = this.getHardestDifficulty(newScore);
+            alert('heh...ur p.bad... ull prolly kill urself if ur score is neg\nso ima put u back on [' + hardest +']');
+            this.setDifficulty(hardest);
+        }
     },
     
+    /* Get the # of attempts for a given post */
     getPostAttempts: function(threadID, postID){
         if(!(threadID in this.threadAttempts)){
             return 0;
@@ -575,11 +801,11 @@ ABGame.prototype = {
             return parseFloat(this.threadAttempts[threadID].getPostAttempts(postID));
         }
     },
-   
+    
     /* Get the value of completing a given post */
     getPostValue: function(threadID, postID){
         var attempts = this.getPostAttempts(threadID, postID);
-        var score = (this.baseScore * this.getDifficultyMultiplier()) / (this.getPostAttempts(threadID, postID) + 1);
+        var score = ((this.baseScore * this.getDifficulty().multiplier) / (this.getPostAttempts(threadID, postID) + 1));
         return score;
     },
     
@@ -693,7 +919,16 @@ ABGame.prototype = {
             }
         });
         this.tv_updateScoreBoard();
+    },
+    
+    tv_anonymize: function(){
+        this.getDifficulty().tv_anonymize();
+    },
+    
+    tv_unlockPost: function(postID){
+        this.getDifficulty().tv_unlockPost(postID);
     }
+    
 };
 
 
