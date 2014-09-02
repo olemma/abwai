@@ -1,0 +1,21 @@
+[
+   {"name" : "Announcements / Polls", "id" : 18},
+   {"name" : "Suggestions" , "id": 10},
+   {"name" : "Anime of the Fortnight"  , "id": 58},
+   {"name" : "Album of the Week"  , "id": 59},
+   {"name" : "Uploaders Den"  , "id": 37},
+   {"name" : "Projects"  , "id": 43},
+   {"name" : "Chat"  , "id": 2},
+   {"name" : "IDC"  , "id": 49},
+   {"name" : "Mild Discusion"  , "id": 46},
+   {"name" : "Japan"  , "id": 4},
+   {"name" : "Creative Workshop": 32},
+   {"name" : "Anime" , "id": 5},
+   {"name" : "Manga" , "id": 6},
+   {"name" : "Music" , "id": 8},
+   {"name" : "Merchandise" , "id": 9},
+   {"name" : "Hentai and Eroge" , "id": 17},
+   {"name" : "HALP!" , "id": 14},
+   {"name" : "Bugs >_<" , "id": 16},
+   {"name" : "Trash" , "id": 3}
+]
