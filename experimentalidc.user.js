@@ -3,16 +3,16 @@
 // @author      Lemma
 // @updateURL    https://gist.githubusercontent.com/Lemmata/dca570b6b0f7e73a2888/raw/experimentalidc.user.js
 // @description Enhance...Enhance...Enhance
-// @include     *animebytes.tv/forums.php
-// @include     *animebytes.tv/forums.php?*action=viewforum*
-// @include		*animebytes.tv/forums.php?*action=viewthread*
-// @version     2.0
+// @include     *://animebytes.tv*
+// @version     2.1
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.github.com/Lemmata/GM_config/master/gm_config.js
+// @require http://userscripts-mirror.org/scripts/source/107941.user.js
 // @resource forumcodes	https://gist.githubusercontent.com/Lemmata/46650c919cb692401712/raw/forums.json
 // @grant		GM_getResourceText
 // @grant		GM_getValue
 // @grant		GM_setValue
+// @grant		GM_addStyle
 // ==/UserScript==
 
 
@@ -23,7 +23,7 @@
 // -levehstein distance
 // -points based on #unlocked in thread
 // -using name in post??
-
+// break all links to user profile in post?
 
 /************************** dev notes
 * -im a bad program.
@@ -32,185 +32,6 @@
 *	fv_ works when viewing a single forum
 *	hv_	works when viewing all forums
 */
-
-////////////////////////Begin copypasta//////////////////////////////
-/***************************************************************************************
-****************************************************************************************
-*****   Super GM_setValue and GM_getValue.js
-*****
-*****   This library extends the Greasemonkey GM_setValue and GM_getValue functions to
-*****   handle any javascript variable type.
-*****
-*****   Add it to your GM script with:
-*****       // @require http://userscripts.org/scripts/source/107941.user.js
-*****
-*****
-*****   Usage:
-*****       GM_SuperValue.set           (varName, varValue);
-*****       var x = GM_SuperValue.get   (varName, defaultValue);
-*****
-*****   Test mode:
-*****       GM_SuperValue.runTestCases  (bUseConsole);
-*****
-*/
-
-var GM_SuperValue = new function () {
-    
-    var JSON_MarkerStr  = 'json_val: ';
-    var FunctionMarker  = 'function_code: ';
-    
-    function reportError (msg) {
-        if (console && console.error){
-            console.log (msg);
-        }
-        else{
-            throw new Error (msg);
-        }
-    }
-    
-    //--- Check that the environment is proper.
-    if (typeof GM_setValue !== "function"){
-        reportError ('This library requires Greasemonkey! GM_setValue is missing.');
-    }
-    if (typeof GM_getValue !== "function"){
-        reportError ('This library requires Greasemonkey! GM_getValue is missing.');
-    }
-    
-    
-    /*--- set ()
-        GM_setValue (http://wiki.greasespot.net/GM_setValue) only stores:
-        strings, booleans, and integers (a limitation of using Firefox
-        preferences for storage).
-
-        This function extends that to allow storing any data type.
-
-        Parameters:
-            varName
-                String: The unique (within this script) name for this value.
-                Should be restricted to valid Javascript identifier characters.
-            varValue
-                Any valid javascript value.  Just note that it is not advisable to
-                store too much data in the Firefox preferences.
-
-        Returns:
-            undefined
-    */
-    this.set = function (varName, varValue) {
-        
-        if ( ! varName) {
-            reportError ('Illegal varName sent to GM_SuperValue.set().');
-            return;
-        }
-        if (/[^\w _-]/.test (varName) ) {
-            reportError ('Suspect, probably illegal, varName sent to GM_SuperValue.set().');
-        }
-        
-        switch (typeof varValue) {
-            case 'undefined':
-                reportError ('Illegal varValue sent to GM_SuperValue.set().');
-                break;
-            case 'boolean':
-            case 'string':
-                //--- These 2 types are safe to store, as is.
-                GM_setValue (varName, varValue);
-                break;
-            case 'number':
-                /*--- Numbers are ONLY safe if they are integers.
-                    Note that hex numbers, EG 0xA9, get converted
-                    and stored as decimals, EG 169, automatically.
-                    That's a feature of JavaScript.
-
-                    Also, only a 32-bit, signed integer is allowed.
-                    So we only process +/-2147483647 here.
-                */
-                if (varValue === parseInt (varValue)  &&  Math.abs (varValue) < 2147483647)
-                {
-                    GM_setValue (varName, varValue);
-                    break;
-                }
-            case 'object':
-                /*--- For all other cases (but functions), and for
-                    unsafe numbers, store the value as a JSON string.
-                */
-                var safeStr = JSON_MarkerStr + JSON.stringify (varValue);
-                GM_setValue (varName, safeStr);
-                break;
-            case 'function':
-                /*--- Functions need special handling.
-                */
-                var safeStr = FunctionMarker + varValue.toString ();
-                GM_setValue (varName, safeStr);
-                break;
-                
-            default:
-                reportError ('Unknown type in GM_SuperValue.set()!');
-                break;
-        }
-    }//-- End of set()
-    
-    
-    /*--- get ()
-        GM_getValue (http://wiki.greasespot.net/GM_getValue) only retieves:
-        strings, booleans, and integers (a limitation of using Firefox
-        preferences for storage).
-
-        This function extends that to allow retrieving any data type -- as
-        long as it was stored with GM_SuperValue.set().
-
-        Parameters:
-            varName
-                String: The property name to get. See GM_SuperValue.set for details.
-            defaultValue
-                Optional. Any value to be returned, when no value has previously
-                been set.
-
-        Returns:
-            When this name has been set...
-                The variable or function value as previously set.
-
-            When this name has not been set, and a default is provided...
-                The value passed in as a default
-
-            When this name has not been set, and default is not provided...
-                undefined
-    */
-    this.get = function (varName, defaultValue) {
-        
-        if ( ! varName) {
-            reportError ('Illegal varName sent to GM_SuperValue.get().');
-            return;
-        }
-        if (/[^\w _-]/.test (varName) ) {
-            reportError ('Suspect, probably illegal, varName sent to GM_SuperValue.get().');
-        }
-        
-        //--- Attempt to get the value from storage.
-        var varValue    = GM_getValue (varName);
-        if (!varValue)
-            return defaultValue;
-        
-        //--- We got a value from storage. Now unencode it, if necessary.
-        if (typeof varValue == "string") {
-            //--- Is it a JSON value?
-            var regxp       = new RegExp ('^' + JSON_MarkerStr + '(.+)$');
-            var m           = varValue.match (regxp);
-            if (m  &&  m.length > 1) {
-                varValue    = JSON.parse ( m[1] );
-                return varValue;
-            }
-            
-            //--- Is it a function?
-            var regxp       = new RegExp ('^' + FunctionMarker + '((?:.|\n|\r)+)$');
-            var m           = varValue.match (regxp);
-            if (m  &&  m.length > 1) {
-                varValue    = eval ('(' + m[1] + ')');
-                return varValue;
-            }
-        }
-        
-        return varValue;
-    }//-- End of get()
-}
 
 //js is so dumb...
 if (typeof String.prototype.startsWith != 'function') {
@@ -348,7 +169,7 @@ function ABGame(){
         
         //TODO get player's points, maybe post count? idk
         isUnlocked: function(score){
-            return (this.enabled);
+            return (this.enabled && score >= this.scoreThreshold);
         },
         
         hv_anonymize: function(){
@@ -371,8 +192,7 @@ function ABGame(){
             console.log("difficulty unlocking " + postID);
             //unlock the name
             $("#post" + postID + " span.num_author").show();
-            //unlock the signature
-            $("#post" + postID + " div.signature").show();
+            
             //unlock quote-name
             $("#post" + postID + " div.post strong a").show();
             //unlock last-edit name
@@ -382,7 +202,7 @@ function ABGame(){
             this.tv_unlockPostForDifficulty($("#post" + postID));
             
             //hide the game interface
-            $("#game_post" + postID).hide();
+            $("#post_board_" + postID).hide();
             
         },
         
@@ -399,8 +219,11 @@ function ABGame(){
                 if(uid != my_uid && !base.isVisible(threadID, postID)){
                     //trash the name
                     $(this).find("span.num_author").hide();
+                    //trash quote-name
+                    $("#post" + postID + " div.post strong a").hide();
+                    //trash last-edit name
+                    $("#post" + postID + " span.last-edited a").hide();       
                     
-                    console.log('working');
                     /* anonymize based on actual difficulty */
                     me.tv_anonymizePostForDifficulty(this);
                     
@@ -420,11 +243,13 @@ function ABGame(){
     this.BeginnerDifficulty.prototype.constructor = this.BeginnerDifficulty;
     
     this.BeginnerDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
-        ;
+        $(context).find("ul.user_fields").hide();
+        $(context).find("li.center").hide();
     }
     
     this.BeginnerDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
-        ;
+        $(context).find("ul.user_fields").show();
+        $(context).find("li.center").show();
     }
     
     //begin NoviceDifficulty
@@ -432,11 +257,23 @@ function ABGame(){
     this.NoviceDifficulty.prototype.constructor = this.NoviceDifficulty;
     
     this.NoviceDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
-        ;
+        //play with only their sig if they have one :)
+        $(context).find("ul.user_fields").hide();
+        $(context).find("li.center").hide();
+        
+        var sig = $(context).find("div.signature");
+        if(sig.length){
+            $(context).find("li.avatar").hide();
+        }else{
+            sig.hide();
+        }
     }
     
     this.NoviceDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
-        ;
+        $(context).find("ul.user_fields").show();
+        $(context).find("li.center").show();
+        $(context).find("div.signature").show();
+        $(context).find("li.avatar").show();
     }
     
     //begin IntermediateDifficulty
@@ -444,11 +281,15 @@ function ABGame(){
     this.IntermediateDifficulty.prototype.constructor = this.IntermediateDifficulty;
     
     this.IntermediateDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
-        ;
+        $(context).find("div.signature").hide();
+        $(context).find("li.avatar").hide();
+        
     }
     
     this.IntermediateDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
-        ;
+        $(context).find("div.signature").show();
+        $(context).find("li.avatar").show();
+        
     }
     
     //begin expertdifficulty
@@ -457,11 +298,14 @@ function ABGame(){
     
     this.ExpertDifficulty.prototype.tv_anonymizePostForDifficulty = function(context){
         $(context).find("div.author_info").hide();   
+        $(context).find("div.signature").hide();
     }
     
     this.ExpertDifficulty.prototype.tv_unlockPostForDifficulty = function(context){
         //unlock whole author panel
-        $(context).find("div.author_info").show();
+        $(context).find("div.author_info").show();//unlock the signature
+        $(context).find("div.signature").show();
+        
     }
     
     //begin IDCDifficulty
@@ -566,7 +410,7 @@ ABGame.prototype = {
         this.name = '';
         this.simpleName = '';
         this.description = 'this game is cute!!';
-        this.threshold = 0;
+        this.scoreThreshold = 0;
         this.enabled = true;
     },
     
@@ -575,7 +419,7 @@ ABGame.prototype = {
         this.name = 'Forum Games';
         this.simpleName = 'beginner';
         this.description = 'this game is cute!!!';
-        this.threshold = Number.NEGATIVE_INFINITY;
+        this.scoreThreshold = Number.NEGATIVE_INFINITY;
     },
     
     
@@ -584,8 +428,7 @@ ABGame.prototype = {
         this.name = 'Mild Discussion';
         this.simpleName = 'novice';
         this.description = "wow... 'av u been practicin'?";
-        this.threshold = 0;
-        this.enabled = false;
+        this.scoreThreshold = 5;
     },
     
     IntermediateDifficulty: function(){
@@ -594,7 +437,6 @@ ABGame.prototype = {
         this.simpleName = 'intermediate';
         this.description = 'its too tough onee-san!!!';
         this.threshld = 50;
-        this.enabled = false;
     },
     
     ExpertDifficulty: function(){
@@ -602,7 +444,7 @@ ABGame.prototype = {
         this.name = 'Hentai';
         this.simpleName = 'expert';
         this.description = 'haha...ok ..well try this1!!!!';
-        this.threshold = 100;
+        this.scoreThreshold = 100;
     },
     
     IdcDifficulty: function(){
@@ -610,7 +452,7 @@ ABGame.prototype = {
         this.name = 'International Department of Concerns';
         this.simpleName = 'idc';
         this.description = 'good luck...buddy... :)):):)not';
-        this.threshold = 500;
+        this.scoreThreshold = 500;
         this.enabled = false;
     },
     
@@ -676,7 +518,7 @@ ABGame.prototype = {
         $("tr[class^='row']").each(function(){
             var forumID = $(this).find("h4.min_padding > a:first").attr("id").slice(1);
             if(me.enabledForums.indexOf(forumID) >= 0){
-                
+                $(this).find("td:nth-child(3) > div > a").hide();
             }
         });
     },
@@ -701,6 +543,15 @@ ABGame.prototype = {
         this.threadAttempts[threadID].updatePost(postID, pStatus);
         this.threadAttempts[threadID].tv_countPosts();
         GM_SuperValue.set("attempted_threads", this.threadAttempts);
+        
+        
+        if(pStatus == 'solve'){
+            GM_SuperValue.set("num_posts_beat", this.countPostsBeat() + 1);
+        }
+        if(pStatus != 'surrender'){
+        	GM_SuperValue.set("num_posts_attempted", this.countPostsAttempted() + 1);
+        }
+        console.log('new attempt!');
     },
     
     tv_on_giveUp: function(threadID, postID, uid){
@@ -766,7 +617,7 @@ ABGame.prototype = {
                 if (hardest == null){
                     hardest = difficulty;
                 }else{
-                    hardest = (difficulty.threshold > hardest.threshold) ? difficulty : hardest;
+                    hardest = (difficulty.scoreThreshold > hardest.scoreThreshold) ? difficulty : hardest;
                 }
             }
         }
@@ -828,25 +679,22 @@ ABGame.prototype = {
         this.setScore(0);
         this.threadAttempts = {};
         GM_SuperValue.set("attempted_threads", {});
+    	GM_SuperValue.set("num_posts_beat", 0);
+        GM_SuperValue.set("num_posts_attempted", 0);
     },
     
     /** Updates post stats when in a thread **/
     tv_updatePostStats: function(threadID, postID){   	
         //update post worth and attempts
-        $("#post_worth_" + postID).text("Post Worth: " + this.getPostValue(threadID, postID).toFixed(1));
-        $("#post_attempt_" + postID).text("Attempts: " + this.getPostAttempts(threadID, postID).toFixed(1));                                  
+        $("#post_worth_" + postID).text(this.getPostValue(threadID, postID).toFixed(1));
+        $("#post_attempts_" + postID).text(this.getPostAttempts(threadID, postID));                                  
         
-    },
-    
-    /** Update the scoreboard in the threadview **/
-    tv_updateScoreBoard: function(){	
-        $('li.player_score').text("Score: " + this.getScore().toFixed(1));	
     },
     
     tv_on_guess: function(threadID, postID, uid, uname){
         
         console.log('Guess for ' + uid + ',' + uname);
-        var guess = $('#guessText_' + postID).val();
+        var guess = $('#post_guess_' + postID).val();
         
         
         var goodGuess = this.nameMatches(guess, uname);
@@ -858,10 +706,8 @@ ABGame.prototype = {
         }
         this.updateAttempt(threadID, postID, (goodGuess ? 'solve' : 'fail'));
         this.tv_updatePostStats(threadID, postID);
-        this.tv_updateScoreBoard();
+        this.updateScoreBoard();
     },
-    
-    
     
     /**
      * Setup the per post controls for the game, where the avatar used to be!
@@ -879,46 +725,63 @@ ABGame.prototype = {
             
             if(uid != my_uid && !me.isVisible(threadID, postID)){
                 var uname = $(this).find("span.num_author > a:first").text();
-                $(this).find("div.author_info").after(function(){
-                    
-                    var ulist = $('<ul>', {class: 'nobullet'});
-                    ulist.append($('<li>', {class: 'center player_score', text: 'Score: '}));
-                    ulist.append($('<li>', {class: 'center post_worth', id: 'post_worth_' + postID, text: 'Post Worth: '}));
-                    ulist.append($('<li>', {class: 'center post_attempts', id: 'post_attempt_' + postID, text: 'Attempts: '}));
-                    ulist.append($('<li>', {class: 'center post_label', text: 'Who am I??'}));
-                    ulist.append($('<li>', {class: 'center post_guess', html: $('<input>', {id: 'guessText_' + postID,  type: 'text'})}));
-                    
-                    ulist.append($('<li>', {class: 'center', html: $('<button>',{
-                        type: 'button',
-                        text: 'Guess',
-                        click:
-                        function(){me.tv_on_guess(threadID, postID, uid,
-                                                  uname);}
-                    })
-                                           }));
-                    
-                    ulist.append($('<li>', {class: 'center', html: $('<button>',{ 
-                        type: 'button', 
-                        text: 'Give Up', 
-                        click:
-                        function(){me.tv_on_giveUp(threadID, postID, uid);}
-                    })
-                                           }));
-                    
-                    ulist.append($('<li>', {class: 'center', html: $('<button>',
-                                                                     { type: 'button',
-                                                                      text: 'Game Settings',
-                                                                      click:
-                                                                      function(){me.gmc_settings.open();}
-                                                                     })
-                                           }));
-                    
-                    return $('<div>', { class: 'author_info', id: 'game_post'+ postID, html: ulist });
+                
+                var postboard = $('<span>', {
+                    class: 'post_board', 
+                    style: 'float:left;font-size:11px;margin:0 0 0 5px;font-weight:normal;',
+                    id: 'post_board_' + postID
                 });
+                
+                
+                var wspan = $('<span>', {
+                    class: 'post_iface_item',
+                    title: 'if u get it right...maybe ill give u this many points'
+                });
+                wspan.append('W: ');
+                wspan.append($('<span>',{
+                    id: "post_worth_" + postID,
+                }));
+                postboard.append(wspan);
+                
+                var aspan = $('<span>',{
+                    class: 'post_iface_item',
+                    title: "uve already tried this many times?!?!"
+                });
+                
+                aspan.append('A: ');
+                aspan.append($('<span>',{
+                    id: "post_attempts_" + postID,
+                }));
+                postboard.append(aspan);
+                
+                postboard.append($('<input>',{
+                    id: 'post_guess_' + postID,
+                    class: "post_iface_item",
+                    type: "text",
+                    title: "...u should put who u think it is here... idc about caps"
+                }));
+                
+                postboard.append($('<button>',{
+                    text: 'Guess',
+                    class: 'post_iface_item',
+                    id: 'post_guess_button',
+                    title: 'press me and see if u get it right ... i doubt it!!!',
+                    click: function(){me.tv_on_guess(threadID, postID, uid, uname);}
+                }));
+                
+                postboard.append($('<button>',{
+                    class: 'post_iface_item',
+                    id: 'post_surrender_button',
+                    text: 'Surrender',
+                    title: 'awww...welll ill show u this one for free...but thats the last time!!',
+                    click: function(){me.tv_on_giveUp(threadID, postID, uid)}
+                }));
+                
+                $(this).find("span.num_author").before(postboard);
+                
                 me.tv_updatePostStats(threadID, postID);
             }
         });
-        this.tv_updateScoreBoard();
     },
     
     tv_anonymize: function(){
@@ -927,24 +790,142 @@ ABGame.prototype = {
     
     tv_unlockPost: function(postID){
         this.getDifficulty().tv_unlockPost(postID);
-    }
+    },
     
+    countForumsActive: function(){
+        return this.enabledForums.length;
+    },
+    
+    countPostsBeat: function(){
+        return GM_SuperValue.get("num_posts_beat", 0);
+    },
+    
+    countPostsAttempted: function(){
+        return GM_SuperValue.get("num_posts_attempted", 0);
+    },
+    
+    /* Update the scoreboard in the top with actual values */
+    updateScoreBoard: function(){
+        $('#game_sb_score').text(this.getScore().toFixed(1));
+        $('#game_sb_posts_attempted').text(this.countPostsAttempted());
+        $('#game_sb_posts_beat').text(this.countPostsBeat());
+        $('#game_sb_forums').text(this.countForumsActive());
+        $('#game_sb_diff').text(this.getDifficulty().simpleName);
+    },
+    
+    //TODO there is a stupid bug?? GM_SuperValue.get if you pass 'true' as the default value, it always returns true...
+    //also its test cases dont work... smh
+    amPlaying: function(){
+        return GM_SuperValue.get("game_enabled");
+    },
+    
+    setPlaying: function(newStatus){
+        GM_SuperValue.set("game_enabled", newStatus);
+        location.reload();
+    },
+    
+    /* Setup the scoreboard in the user menu*/
+    setupScoreBoard: function(){
+        var base = this;
+        
+        function on_setting_click(){
+            base.gmc_settings.open();
+        }
+        
+        function updatePlaying(){
+            if(!base.amPlaying()){
+                $('#game_sb_toggle').attr({
+                    "src": '/static/common/smileys/whistle.png',
+                    "title": 'pls click and play!!!!!!... i miss you!!'
+                });
+            }else{
+                $('#game_sb_toggle').attr({
+                    "src": '/static/common/smileys/kamina.png',
+                    "title": 'no...dont click this!!! keep playing... ill be nice!'
+                });
+            }	
+        }
+        
+        //GM_SuperValue.runTestCases();
+        
+        function on_playing_click(){
+            base.setPlaying(!base.amPlaying());
+            updatePlaying();
+        }
+        
+        //begin dangerousstylesheetspecifichacks
+        $("#userinfo").css({"height" : "60px", "overflow": "hidden"});
+        
+        var ul_stats = $('<ul>', {class: 'userinfonav', style: 'clear:right;', id: 'game_sb'});
+        
+        ul_stats.append($('<li>',{
+            html: $('<a>',{
+                html: 'D: <span id=game_sb_diff>diff</span>',
+                click: function(){on_setting_click();},
+                title: 'if u need this tooltip...smh'
+            })}));
+        
+        ul_stats.append($('<li>',{
+            html: $('<a>',{
+                html: 'F: <span id=game_sb_forums>0</span>',
+                click: function(){on_setting_click();},
+                title: 'hehe...u only dare play in this many forums?!!?'
+            })}));
+        
+        ul_stats.append($('<li>',{
+            html: $('<a>',{
+                html: 'PB: <span id=game_sb_posts_beat>0</span>',
+                click: function(){on_setting_click();},
+                title: '...ok well at least you have guessed this many right...baka!!!'
+            })}));
+        
+        ul_stats.append($('<li>',{
+            html: $('<a>',{
+                html: 'PA: <span id=game_sb_posts_attempted>0</span>',
+                click: function(){on_setting_click();},
+                title: '...wow...uve tried this many?!?!'
+            })}));
+        
+        ul_stats.append($('<li>',{
+            html: $('<a>',{
+                html: 'S: <span id=game_sb_score>0</span>',
+                click: function(){on_setting_click();},
+                title: '...its your score baka!!!'
+            })}));
+        
+        ul_stats.append($('<li>',{
+            html: $('<img>',{
+                id: 'game_sb_toggle',
+                click: function(){on_playing_click();},
+            })}));
+        
+        $("#userinfo").append(ul_stats);
+        
+        //setup the actual values
+        this.updateScoreBoard();
+        updatePlaying();
+    }
 };
 
-
+//hook into website!!
 var abgame = new ABGame();
 //do work
 var viewthreadURLMatcher = /.*action=viewthread.*$/i;
 var viewforumURLMatcher = /.*action=viewforum.*$/i;
-if(viewforumURLMatcher.test(window.location.href)){
-    abgame.fv_anonymize();
-}else if (viewthreadURLMatcher.test(window.location.href)){
-    if(abgame.tv_fv_checkThread()){
-        abgame.tv_anonymize();
-        abgame.tv_setupGame();
+var viewTopForumURLMatcher = /.*forums\.php$/i;
+
+abgame.setupScoreBoard();
+
+console.log(window.location.href);
+if(abgame.amPlaying()){
+    if(viewforumURLMatcher.test(window.location.href)){
+        abgame.fv_anonymize();
+    }else if(viewthreadURLMatcher.test(window.location.href)){
+        if(abgame.tv_fv_checkThread()){
+            abgame.tv_anonymize();
+            abgame.tv_setupGame();
+        }
+    }else if(viewTopForumURLMatcher.test(window.location.href)){
+        abgame.hv_anonymize();
     }
-}else{
-    abgame.hv_anonymize();
-}
-
-
+        }
