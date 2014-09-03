@@ -8,7 +8,7 @@
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.github.com/olemma/GM_config/master/gm_config.js
 // @require		https://raw.github.com/olemma/abwai/master/gmsuper.user.js
-// @resource	https://raw.github.com/olemma/abwai/resources/forums.json
+// @resource	forumcodes https://raw.github.com/olemma/abwai/master/resources/forums.json
 // @grant		GM_getResourceText
 // @grant		GM_getValue
 // @grant		GM_setValue
@@ -346,7 +346,7 @@ function ABGame(){
                     'label' : forumcodes[i]['name'],
                     'type' : 'checkbox',
                     'default' : false 
-                }
+                };
         }
         return fields;
     }
