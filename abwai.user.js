@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name        abwai
 // @author      Lemma
-// @updateURL    https://gist.githubusercontent.com/Lemmata/dca570b6b0f7e73a2888/raw/experimentalidc.user.js
-// @description Enhance...Enhance...Enhance
+// @updateURL	https://raw.github.com/olemma/abwai/master/abwai.user.js
+// @description	Enhance...Enhance...Enhance
 // @include     *://animebytes.tv*
 // @version     2.2
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
-// @require		https://raw.github.com/Lemmata/GM_config/master/gm_config.js
-// @require http://userscripts-mirror.org/scripts/source/107941.user.js
-// @resource forumcodes	https://gist.githubusercontent.com/Lemmata/46650c919cb692401712/raw/forums.json
+// @require		https://raw.github.com/olemma/GM_config/master/gm_config.js
+// @require		https://raw.github.com/olemma/abwai/master/gmsuper.user.js
+// @resource	https://raw.github.com/olemma/abwai/resources/forums.json
 // @grant		GM_getResourceText
 // @grant		GM_getValue
 // @grant		GM_setValue
