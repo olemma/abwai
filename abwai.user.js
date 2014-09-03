@@ -2,7 +2,7 @@
 // @name        abwai
 // @author      Lemma
 // @updateURL	https://raw.github.com/olemma/abwai/master/abwai.user.js
-// @description	Enhance...Enhance...Enhance
+// @description	This is a serious game... about seriously figuring out who some of these posters are.
 // @include     *://animebytes.tv*
 // @version     2.2
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
