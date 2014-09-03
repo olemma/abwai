@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name        abwai
 // @author      Lemma
-// @updateURL	https://raw.github.com/olemma/abwai/master/abwai.user.js
-// @description	Enhance...Enhance...Enhance
+// @updateURL	https://raw.github.com/olemma/abwai/develop/abwai.user.js
+// @description	This is a serious game... about seriously figuring out who some of these posters are.
 // @include     *://animebytes.tv*
 // @version     2.2
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
-// @require		https://raw.github.com/olemma/GM_config/master/gm_config.js
-// @require		https://raw.github.com/olemma/abwai/master/gmsuper.user.js
-// @resource	forumcodes https://raw.github.com/olemma/abwai/master/resources/forums.json
+// @require		https://raw.github.com/olemma/GM_config/develop/gm_config.js
+// @require		https://raw.github.com/olemma/abwai/develop/gmsuper.user.js
+// @resource	forumcodes https://raw.github.com/olemma/abwai/develop/resources/forums.json
 // @grant		GM_getResourceText
 // @grant		GM_getValue
 // @grant		GM_setValue
