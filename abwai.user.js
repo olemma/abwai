@@ -9,14 +9,14 @@
 // @require		https://raw.github.com/olemma/GM_config/develop/gm_config.js
 // @require		https://raw.github.com/olemma/abwai/develop/gmsuper.user.js
 // @resource	forumcodes https://raw.github.com/olemma/abwai/develop/resources/forums.json
+// @resource	gamestylesheet https://raw.github.com/olemma/abwai/develop/resources/gamestyle.css
 // @grant		GM_getResourceText
 // @grant		GM_getValue
 // @grant		GM_setValue
 // @grant		GM_addStyle
 // ==/UserScript==
 
-
-////////////////NOTES////////////////////////
+///////////////NOTES////////////////////////
 // -extra points for unlocking whole thread?
 // -extra points for streak?
 // -different difficulties
@@ -32,6 +32,11 @@
 *	fv_ works when viewing a single forum
 *	hv_	works when viewing all forums
 */
+
+//setup the external stylesheet
+var gameStyleSheet = GM_getResourceText("gamestylesheet");
+GM_addStyle(gameStyleSheet);
+
 
 //js is so dumb...
 if (typeof String.prototype.startsWith != 'function') {
@@ -334,6 +339,8 @@ function ABGame(){
     this.difficulties[expertDifficulty.simpleName] = expertDifficulty;
     this.difficulties[idcDifficulty.simpleName] = idcDifficulty;
     
+    
+    
     //code to setup the settings picker
     function fetchForumFields(){
         var fields = {};
@@ -351,7 +358,7 @@ function ABGame(){
         return fields;
     }
     
-    function on_confirm_reset(base){
+    function on_settings_confirm_reset(){
         if(confirm("Are you sure you want to reset your score and history of beaten posts?")){
             base.resetGame();
             location.reload();
@@ -361,30 +368,52 @@ function ABGame(){
         }
     }
     
+    //fuck.... FUCK FUCK FUCK FUUUUCKKKKKKKKKKKKKKK FUCK FUCK FUCCCCCKKKK
+    function on_settings_open(doc){
+        console.log(base.getDifficulties());
+        $.each(base.getDifficulties(), function(idx, difficulty){
+            $('#gmc_settings_field_game_difficulty', doc).append(
+                $('<option>', {
+                    value: difficulty.simpleName,
+                    html: difficulty.toString(),
+                }).prop('disabled', !difficulty.isUnlocked(base.getScore()))
+                .prop('selected', (difficulty.simpleName == base.getDifficulty()))
+                
+            );
+        });	
+    }
+    
     this.gmc_settings = new GM_configStruct(
         {
             'id' : 'gmc_settings',
             'title': 'Game Settings',
-            'fields': $.extend(
+            'fields':  $.extend(
                 {
                     'resetbutton':
                     {
                         'label' : 'Reset Game',
                         'type' : 'button',
-                        'click' : function(){on_confirm_reset(base);}
+                        'click' : function(){on_settings_confirm_reset();}
                     },
                     
                     'game_difficulty':
                     {
                         'label' : 'Choose Difficulty',
                         'type' : 'select',
-                        'options' : this.getDisplayDifficulties(),
+                        'options' : [],
                         'default': 'beginner'
                     }
                 }, 
                 fetchForumFields()
-            )}
-    );
+            ),
+            'events': {
+                'open' : function(doc) { on_settings_open(doc) },
+                //this is called even if the window isnt open lol 'save' : function() { base.updateScoreBoard(); },
+                'close': function() { location.reload(); }
+            }
+        });
+    
+    
     //TODO callback reload settings on save? maybe just let them refresh
     
     //begin actual game code things
@@ -456,7 +485,6 @@ ABGame.prototype = {
         this.enabled = false;
     },
     
-    
     /** Get forum ids of all enabled forums 
      hacky thing to list all of these in GM_config code
      **/
@@ -491,6 +519,7 @@ ABGame.prototype = {
      * TODO: make it harder to cheat by hiding links to user profiles
      */
     fv_anonymize: function(){
+        
         //check if we are playing in this forum (coincidentally we can do this with tv_fv_checkThread)
         if(this.tv_fv_checkThread()){
             var me = this;
@@ -571,16 +600,14 @@ ABGame.prototype = {
         return parseFloat(GM_SuperValue.get("player_score", 0));
     },
     
-    /* Get the difficulties you can play on
-    	TODO: this should depend on your score
+    /* Get all difficulties
     */
-    getDisplayDifficulties: function(){
-        var opts = {};
+    getDifficulties: function(){
+        var opts = [];
         for (var simpleName in this.difficulties){
             var difficulty = this.difficulties[simpleName];
-            if(difficulty.isUnlocked(this.getScore())){
-                opts[difficulty.toString()] = simpleName;
-            }
+            opts.push(difficulty);
+            
         }
         return opts;  	
     },
@@ -595,6 +622,9 @@ ABGame.prototype = {
      */
     setDifficulty: function(difficulty){
         this.gmc_settings.set("game_difficulty", difficulty.simpleName);
+        this.gmc_settings.save();
+        //reset the fields ... this is moot because we are going to reload anyway
+        console.log("Setting difficulty to :" + difficulty.simpleName);
         location.reload();
     },
     
@@ -625,19 +655,28 @@ ABGame.prototype = {
         return (hardest == null) ? anyDifficulty() : hardest.simpleName;
     },
     
+    /* Unlock a difficulty */
+    unlockDifficulty: function(difficulty){
+        //update the settings fields to reflect unlocked difficulty
+        console.log(this.gmc_settings);
+        alert('wow... ur better than i thuoght...  baka\n...well ok ill let u play on [' + difficulty.toString() + ']');
+        console.log('Difficulty unlocked: ' + difficulty.simpleName);
+    },
+    
     setScore: function(newScore){
         var oldScore = this.getScore();
         GM_SuperValue.set("player_score", newScore);
         
+        console.log("setting score from " + oldScore + " to " + newScore);
         for(var key in this.difficulties){
             var difficulty = this.difficulties[key]; 
             if( !difficulty.isUnlocked(oldScore) && difficulty.isUnlocked(newScore) ){
-                alert('wow... ur better than i thuoght...  baka\n...well ok ill let u play on [' + difficulty.toString() + ']');
+                this.unlockDifficulty(difficulty);
                 return;
             }
         }
-        
-        if(!this.getDifficulty().isUnlocked(newScore)){
+ 
+        if(!(this.getDifficulty().isUnlocked(newScore))){
             var hardest = this.getHardestDifficulty(newScore);
             alert('heh...ur p.bad... ull prolly kill urself if ur score is neg\nso ima put u back on [' + hardest +']');
             this.setDifficulty(hardest);
@@ -661,22 +700,22 @@ ABGame.prototype = {
     },
     
     scoreUp: function(threadID, postID){
+        alert(":) alright...you got one\n...but you can never win\nscore: " + newScore);
         var newScore = this.getScore() + this.getPostValue(threadID, postID);
         this.setScore(newScore);
         console.log('score++');
-        alert(":) alright...you got one\n...but you can never win\nscore: " + newScore);
     },
     
     scoreDown: function(threadID, postID){
+        alert(':((((((((((((((((((\n...nice try dork\nscore: ' + newScore);
         var newScore = this.getScore() - (this.getPostValue(threadID, postID)/4.0);
         this.setScore(newScore);
         console.log('score--');
-        alert(':((((((((((((((((((\n...nice try dork\nscore: ' + newScore);
     },
     
     /** Reset the game... player's score and attempted threads/posts **/
     resetGame: function(){
-        this.setScore(0);
+        GM_SuperValue.set("player_score", 0);
         this.threadAttempts = {};
         GM_SuperValue.set("attempted_threads", {});
         GM_SuperValue.set("num_posts_beat", 0);
@@ -727,8 +766,7 @@ ABGame.prototype = {
                 var uname = $(this).find("span.num_author > a:first").text();
                 
                 var postboard = $('<span>', {
-                    class: 'post_board', 
-                    style: 'float:left;font-size:11px;margin:0 0 0 5px;font-weight:normal;',
+                    class: 'post_board',
                     id: 'post_board_' + postID
                 });
                 
@@ -836,8 +874,8 @@ ABGame.prototype = {
             
             //hellooo... globals... check if we COULD be playing!!!!
             if((viewforumURLMatcher.test(window.location.href) || 
-               viewthreadURLMatcher.test(window.location.href)) && 
-                base.tv_fv_checkThread()
+                viewthreadURLMatcher.test(window.location.href)) && 
+               base.tv_fv_checkThread()
               ){
                 if(!base.amPlaying()){
                     $('#game_sb_toggle').attr({
@@ -866,8 +904,6 @@ ABGame.prototype = {
             }
         }
         
-        //GM_SuperValue.runTestCases();
-        
         function on_playing_click(){
             base.setPlaying(!base.amPlaying());
             updatePlaying();
@@ -876,7 +912,7 @@ ABGame.prototype = {
         //begin dangerousstylesheetspecifichacks
         $("#userinfo").css({"height" : "60px", "overflow": "hidden"});
         
-        var ul_stats = $('<ul>', {class: 'userinfonav', style: 'clear:right;', id: 'game_sb'});
+        var ul_stats = $('<ul>', {class: 'userinfonav', id: 'game_sb'});
         
         ul_stats.append($('<li>',{
             html: $('<a>',{
@@ -942,10 +978,13 @@ if(abgame.amPlaying()){
         abgame.fv_anonymize();
     }else if(viewthreadURLMatcher.test(window.location.href)){
         if(abgame.tv_fv_checkThread()){
+            console.log("Playing in a thread!");
             abgame.tv_anonymize();
             abgame.tv_setupGame();
         }
     }else if(viewTopForumURLMatcher.test(window.location.href)){
         abgame.hv_anonymize();
     }
+        }else{
+            console.log("Gameplay disabled");
         }
