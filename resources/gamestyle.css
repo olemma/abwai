@@ -2,6 +2,7 @@
 	clear:right;
 }
 
+/* Begin styles for post board interface */
 .post_board{
 	float:left;
 	font-size:11px;
@@ -10,7 +11,13 @@
 }
 
 .post_iface_item{
-	padding: 0 0 0 5px;
+	margin: 0 0 0 5px;
 }
+
+button.post_iface_item{
+	padding: 0 0 5px 5px;
+}
+
+
 
 
