@@ -1,0 +1,16 @@
+#game_sb{
+	clear:right;
+}
+
+.post_board{
+	float:left;
+	font-size:11px;
+	margin: 0 0 0 5px;
+	font-weight:normal;
+}
+
+.post_iface_item{
+	padding: 0 0 0 5px;
+}
+
+
