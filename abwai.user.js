@@ -152,10 +152,16 @@ ABThread.prototype = {
     }
 }; //end ABThread.prototype
 
+var chardialog = $('<div>', {
+    style: 
+    {
+        position: 'absolute;top: 0px;left: 0px;height: 242px;width: 206px;margin: 10px 10px 10px 10px;',
+    }
+});
 
 //////////////main game object//////////////////////
 function ABGame(){
-    this.anonName = 'play!!!';
+    this.anonName = '[abwai]';
     this.attempted = GM_SuperValue.get("attempted_posts", {});
     this.baseScore = 10;
     /** Get forum information from a resource **/
@@ -518,19 +524,23 @@ ABGame.prototype = {
      * TODO: what about defeated threads/posts??
      * TODO: make it harder to cheat by hiding links to user profiles
      */
-    fv_anonymize: function(){
-        
+    fv_anonymize: function(){            
+        var my_uid = $("#username_menu > a").attr("href").split("=")[1];
         //check if we are playing in this forum (coincidentally we can do this with tv_fv_checkThread)
         if(this.tv_fv_checkThread()){
             var me = this;
             /* Fix rows in idc forum view */
-            $("tr[class^='row']").each(function(){
+            $("table[width='100%']:eq(1) tr[class^='row']").each(function(){
                 var threadID = (/threadid=(\d+)/i).exec($(this).find("strong > a").attr("href"))[1];
+                console.log($(this).find("td:nth-child(5)"));
+                var opUID = $(this).find("td:nth-child(5) a").attr("href").split("=")[1];
                 
+                console.log(opUID);
                 //show thread author
-                if(!me.isFirstPostVisible(threadID)){
+                if(!(me.isFirstPostVisible(threadID) || opUID == my_uid )){
                     $(this).find("td:nth-child(5)").text(me.anonName);
                 }
+                
                 
                 //TODO: maybe unhide last poster if thread is beat?
                 $(this).find("td:nth-child(3) a").text(me.anonName);
@@ -540,14 +550,13 @@ ABGame.prototype = {
     
     /** Hide last posters in top level forums page for forums you are playing the game in
     	TODO: make it harder to cheat by hiding links to user profiles
-        TODO: wtf happened to the code for this??
     */
     hv_anonymize: function(){
         var me = this;
         $("tr[class^='row']").each(function(){
             var forumID = $(this).find("h4.min_padding > a:first").attr("id").slice(1);
             if(me.enabledForums.indexOf(forumID) >= 0){
-                $(this).find("td:nth-child(3) > div > a").hide();
+                $(this).find("td:nth-child(3) > div > a").text(me.anonName);
             }
         });
     },
@@ -675,7 +684,7 @@ ABGame.prototype = {
                 return;
             }
         }
- 
+        
         if(!(this.getDifficulty().isUnlocked(newScore))){
             var hardest = this.getHardestDifficulty(newScore);
             alert('heh...ur p.bad... ull prolly kill urself if ur score is neg\nso ima put u back on [' + hardest +']');
@@ -700,15 +709,15 @@ ABGame.prototype = {
     },
     
     scoreUp: function(threadID, postID){
-        alert(":) alright...you got one\n...but you can never win\nscore: " + newScore);
         var newScore = this.getScore() + this.getPostValue(threadID, postID);
+        alert(":) alright...you got one\n...but you can never win\nscore: " + newScore);
         this.setScore(newScore);
         console.log('score++');
     },
     
     scoreDown: function(threadID, postID){
+        var newScore = this.getScore() - (this.getPostValue(threadID, postID)/4.0); 
         alert(':((((((((((((((((((\n...nice try dork\nscore: ' + newScore);
-        var newScore = this.getScore() - (this.getPostValue(threadID, postID)/4.0);
         this.setScore(newScore);
         console.log('score--');
     },
@@ -796,24 +805,37 @@ ABGame.prototype = {
                     id: 'post_guess_' + postID,
                     class: "post_iface_item",
                     type: "text",
+                    placeholder: 'who...am...i??',
                     title: "...u should put who u think it is here... idc about caps"
                 }));
                 
                 postboard.append($('<button>',{
                     text: 'Guess',
                     class: 'post_iface_item',
-                    id: 'post_guess_button',
+                    id: 'post_guess_button_' + postID,
                     title: 'press me and see if u get it right ... i doubt it!!!',
                     click: function(){me.tv_on_guess(threadID, postID, uid, uname);}
                 }));
                 
                 postboard.append($('<button>',{
                     class: 'post_iface_item',
-                    id: 'post_surrender_button',
+                    id: 'post_surrender_button_' + postID,
                     text: 'Surrender',
                     title: 'awww...welll ill show u this one for free...but thats the last time!!',
                     click: function(){me.tv_on_giveUp(threadID, postID, uid)}
                 }));
+                
+                
+                $(postboard).keypress(function (e) {
+                    if ((e.which && e.which == 13) || (e.keyCode && e.keyCode == 13)) {
+                        if($(postboard).find('#post_guess_' + postID).val()){
+                            $(postboard).find('#post_guess_button_' + postID).click();
+                            return false;
+                        }
+                    } else {
+                        return true;
+                    }
+                });
                 
                 $(this).find("span.num_author").before(postboard);
                 
